@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fly from Australia</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1a1d23;--muted:#667085;--line:#e3e6eb;--accent:#0b6bcb;--bar:#cfe3f8;--chip:#eef2f7;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151a;--card:#1b1f27;--text:#eef0f4;--muted:#99a1b0;--line:#2b303a;--accent:#5ea8f5;--bar:#25405f;--chip:#262c37;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12151a;--card:#1b1f27;--text:#eef0f4;--muted:#99a1b0;--line:#2b303a;--accent:#5ea8f5;--bar:#25405f;--chip:#262c37;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px}
+.controls{display:grid;gap:10px;margin-bottom:14px}
+select,input{width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.tab{flex:1;min-width:90px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font-size:.95rem;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.count{color:var(--muted);font-size:.9rem;margin:6px 2px 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.city{font-weight:600}
+.code{color:var(--muted);font-size:.85rem;margin-left:6px}
+.dur{font-weight:600;color:var(--accent);white-space:nowrap}
+.bar{height:5px;border-radius:3px;background:var(--bar);margin:8px 0}
+.meta{color:var(--muted);font-size:.85rem;margin-bottom:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--chip);border-radius:20px;padding:2px 10px;font-size:.82rem}
+.note{color:var(--muted);font-size:.8rem;margin-top:20px}
+.map{--ocean:#dcecfa;--land:#f1f4f7;margin-bottom:6px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .map{--ocean:#17202b;--land:#2b3441}}
+:root[data-theme="dark"] .map{--ocean:#17202b;--land:#2b3441}
+.map svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:12px;background:var(--ocean)}
+.map .land{fill:var(--land);stroke:var(--line);stroke-width:.6;vector-effect:non-scaling-stroke}
+.map .arc{fill:none;stroke:var(--accent);stroke-width:1.2;opacity:.35;vector-effect:non-scaling-stroke}
+.map .arc.sel{stroke-width:2.8;opacity:1}
+.map .dot{fill:var(--accent);cursor:pointer}
+.map .dot.sel{fill:#e5484d}
+.map .org{fill:var(--text)}
+.map text{fill:var(--text);paint-order:stroke;stroke:var(--ocean);stroke-linejoin:round;pointer-events:none}
+.cap{color:var(--muted);font-size:.9rem;margin:6px 2px 0}
+.card{cursor:pointer}
+.card.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<h1>Fly from Australia</h1>
+<p class="sub">Where you can fly direct, how long it takes, and who flies it.</p>
+<div class="controls">
+<select id="origin" aria-label="Departure airport"></select>
+<div class="row" id="tabs">
+<button class="tab" data-f="all" aria-pressed="true">All</button>
+<button class="tab" data-f="dom" aria-pressed="false">Domestic</button>
+<button class="tab" data-f="int" aria-pressed="false">International</button>
+</div>
+<div class="row">
+<input id="q" type="search" placeholder="Search destination or airline" style="flex:2;min-width:180px">
+<select id="sort" style="flex:1;min-width:140px" aria-label="Sort"><option value="m">Shortest flight</option><option value="n">Name A–Z</option><option value="l">Longest flight</option></select>
+</div>
+</div>
+<div class="map"><svg id="map" viewBox="0 0 1000 362" role="img" aria-label="Route map"></svg><div class="cap" id="cap"></div></div>
+<div class="count" id="count"></div>
+<div id="list"></div>
+<p class="note">Durations are typical scheduled direct-flight times and airline lists are indicative only. Western Sydney (WSI) routes and start dates follow announcements as of November 2026. Schedules change by season, so confirm with the airline before booking.</p>
+</main>
+<script>
+const AP={SYD:["Sydney","Australia"],WSI:["Western Sydney","Australia"],MEL:["Melbourne","Australia"],BNE:["Brisbane","Australia"],PER:["Perth","Australia"],ADL:["Adelaide","Australia"],CBR:["Canberra","Australia"],OOL:["Gold Coast","Australia"],CNS:["Cairns","Australia"],HBA:["Hobart","Australia"],DRW:["Darwin","Australia"],
+AKL:["Auckland","New Zealand"],WLG:["Wellington","New Zealand"],CHC:["Christchurch","New Zealand"],NAN:["Nadi","Fiji"],POM:["Port Moresby","Papua New Guinea"],SIN:["Singapore","Singapore"],BKK:["Bangkok","Thailand"],DPS:["Bali (Denpasar)","Indonesia"],KUL:["Kuala Lumpur","Malaysia"],HKG:["Hong Kong","Hong Kong"],NRT:["Tokyo (Narita)","Japan"],ICN:["Seoul (Incheon)","South Korea"],DXB:["Dubai","UAE"],DOH:["Doha","Qatar"],LAX:["Los Angeles","USA"],SFO:["San Francisco","USA"],LHR:["London (Heathrow)","UK"]};
+const AIR=new Proxy({QF:"Qantas",VA:"Virgin Australia",JQ:"Jetstar",ZL:"Rex",QQ:"Alliance Airlines",NZ:"Air New Zealand",SQ:"Singapore Airlines",TR:"Scoot",EK:"Emirates",QR:"Qatar Airways",EY:"Etihad",CX:"Cathay Pacific",TG:"Thai Airways",MH:"Malaysia Airlines",AK:"AirAsia",D7:"AirAsia X",GA:"Garuda Indonesia",VN:"Vietnam Airlines",VJ:"VietJet",BR:"EVA Air",CI:"China Airlines",CA:"Air China",MU:"China Eastern",CZ:"China Southern",KE:"Korean Air",OZ:"Asiana",JL:"Japan Airlines",NH:"ANA",UA:"United",AA:"American",DL:"Delta",AC:"Air Canada",BA:"British Airways",AI:"Air India",UL:"SriLankan",FJ:"Fiji Airways",PX:"Air Niugini",PR:"Philippine Airlines",HA:"Hawaiian"},{get:(t,k)=>t[k]||k});
+const R=`SYD-MEL 95 QF VA JQ ZL
+SYD-BNE 85 QF VA JQ ZL
+SYD-CBR 55 QF VA ZL
+SYD-ADL 135 QF VA JQ
+SYD-PER 345 QF VA JQ
+SYD-OOL 90 QF VA JQ
+SYD-CNS 170 QF VA JQ
+SYD-HBA 120 QF VA JQ
+SYD-DRW 245 QF VA
+MEL-BNE 120 QF VA JQ
+MEL-ADL 85 QF VA JQ ZL
+MEL-PER 235 QF VA JQ
+MEL-CBR 75 QF VA
+MEL-OOL 125 QF VA JQ
+MEL-CNS 190 QF VA JQ
+MEL-HBA 80 QF VA JQ
+MEL-DRW 235 QF VA JQ
+BNE-ADL 165 QF VA JQ
+BNE-PER 320 QF VA JQ
+BNE-CBR 100 QF VA
+BNE-CNS 120 QF VA JQ
+BNE-DRW 195 QF VA
+BNE-HBA 175 JQ
+ADL-PER 250 QF VA JQ
+ADL-DRW 190 QF
+PER-DRW 260 QF
+SYD-AKL 180 QF NZ JQ EK
+SYD-WLG 180 QF NZ
+SYD-CHC 190 QF NZ JQ
+SYD-NAN 240 QF FJ
+SYD-SIN 490 QF SQ JQ
+SYD-BKK 540 QF TG
+SYD-DPS 390 QF JQ VA
+SYD-KUL 480 MH
+SYD-HKG 540 QF CX
+SYD-NRT 570 QF JL
+SYD-ICN 600 QF KE
+SYD-LAX 810 QF UA
+SYD-SFO 840 UA
+SYD-DXB 870 QF EK
+SYD-DOH 840 QR
+MEL-AKL 200 QF NZ JQ
+MEL-SIN 470 QF SQ
+MEL-DPS 360 QF JQ VA
+MEL-BKK 540 TG
+MEL-KUL 480 MH
+MEL-HKG 540 CX
+MEL-NRT 570 QF JL
+MEL-DXB 840 EK
+MEL-DOH 840 QR
+BNE-AKL 180 QF NZ
+BNE-NAN 220 FJ
+BNE-SIN 450 QF SQ
+BNE-DPS 370 QF JQ VA
+BNE-HKG 510 CX
+BNE-NRT 540 QF JL
+BNE-LAX 780 QF
+BNE-DOH 840 QR
+PER-SIN 320 QF SQ
+PER-DPS 210 QF JQ VA
+PER-KUL 330 MH
+PER-HKG 450 CX
+PER-DXB 660 EK
+PER-DOH 690 QR
+PER-LHR 1020 QF
+ADL-SIN 420 SQ
+CNS-NRT 450 JQ
+CNS-POM 120 PX
+DRW-SIN 285 SQ
+DRW-DPS 180 JQ
+CBR-SIN 450 SQ
+WSI-MEL 100 JQ QF@2027-03-28
+WSI-BNE 90 JQ QF@2027-03-28
+WSI-OOL 95 JQ
+WSI-AKL 185 NZ@2026-10-26
+WSI-SIN 495 SQ@2026-11-23
+WSI-DOH 855 QR@2027-12`.trim().split("\n").map(l=>{const p=l.split(" "),[a,b]=p[0].split("-"),st={};const al=p.slice(2).map(t=>{const[c,s]=t.split("@");if(s)st[c]=s;return c});return{a,b,m:+p[1],al,st}});
+const isAU=c=>AP[c][1]==="Australia";
+let sel=null;
+const TODAY=new Date(),MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtD=s=>{const[y,m,dd]=s.split("-");return(dd?+dd+" ":"")+MO[m-1]+" "+y};
+const soon=(x,a)=>x.st[a]&&new Date(x.st[a])>TODAY?` · from ${fmtD(x.st[a])}`:"";
+const LL={SYD:[151.2,-33.9],WSI:[150.73,-33.89],MEL:[144.8,-37.7],BNE:[153.1,-27.4],PER:[115.9,-31.9],ADL:[138.5,-34.9],CBR:[149.2,-35.3],OOL:[153.5,-28.2],CNS:[145.8,-16.9],HBA:[147.5,-42.8],DRW:[130.9,-12.4],AKL:[174.8,-37],WLG:[174.8,-41.3],CHC:[172.5,-43.5],NAN:[177.4,-17.8],POM:[147.2,-9.4],SIN:[104,1.4],BKK:[100.7,13.7],DPS:[115.2,-8.7],KUL:[101.7,2.7],HKG:[113.9,22.3],NRT:[140.4,35.8],ICN:[126.5,37.5],DXB:[55.4,25.3],DOH:[51.6,25.3],LAX:[-118.4,33.9],SFO:[-122.4,37.6],LHR:[-0.5,51.5]};
+const S=1000/360,X=lo=>((lo<-20?lo+360:lo)+20)*S,Y=la=>(75-la)*S,P=c=>[X(LL[c][0]),Y(LL[c][1])];
+const LAND=["113,-22 114,-26 115,-34 118,-35 124,-33 131,-31.5 135,-35 138,-35 140,-38 146,-39 150,-37 153,-31 153,-25 146,-19 145,-15 142,-11 141,-17 136,-12 131,-12 127,-14 122,-18","145,-41 148,-41 147,-43.5 145.5,-42.5","173,-35 175,-37 178,-38 175,-41.5 174,-39","172,-41 174,-41.5 171,-44.5 167,-46 166.5,-45.5","131,-1 141,-2.5 147,-6 150,-10 143,-9 138,-8 134,-4","95,5 98,4 104,-2 106,-6 101,-3 96,2","105,-6 114,-7.5 114,-8.5 106,-7","109,1 117,7 119,1 116,-4 110,-3","130,31 132,34 135,34.5 140,36 142,40 141,45 144,43 141,41 139,38 136,36 132,35.5","-9,37 -9,43 -2,47 -5,48.5 2,51 8,54 10,57 5,60 12,66 20,70 30,71 45,68 70,73 100,77 140,72 170,70 180,66 180,64 160,60 155,51 142,53 140,47 132,43 129,40 129,35 126,35 126,38 122,40 121,37 119,35 122,30 120,23 110,21 108,17 106,10 104,9 101,13 100,8 103,1.5 101,3 98,8 98,16 94,17 92,22 88,22 80,15 77,8 73,16 72,21 67,24 62,25 57,26 56,24 59,22 52,16 43,13 39,21 35,28 34,31 36,36 30,36 27,37 26,40 22,37 15,38 12,44 7,44 3,43 -1,40 -6,36","-17,21 -10,30 -6,36 10,37 11,33 20,31 32,31 34,28 38,20 43,12 51,12 47,5 40,-3 40,-11 35,-20 33,-26 27,-34 20,-35 17,-30 12,-17 13,-8 9,-1 9,4 4,6 -8,4 -14,10 -17,15","-168,66 -165,69 -156,71.5 -140,70 -125,70 -95,72 -82,68 -62,60 -56,52 -66,45 -70,42 -76,35 -81,31 -80,26 -83,29 -90,30 -97,27 -97,22 -105,20 -110,23 -114,30 -117,32.5 -120,34.5 -124,40 -124,47 -130,55 -140,60 -152,59 -158,57 -165,62","-80,9 -72,12 -62,10 -52,5 -50,0 -35,-6 -39,-14 -41,-22 -48,-26 -54,-34 -58,-38 -65,-41 -68,-52 -73,-52 -74,-42 -71,-30 -70,-18 -76,-14 -81,-5 -80,0"].map(s=>"M"+s.split(" ").map(p=>{const[a,b]=p.split(",");return X(+a)+" "+Y(+b)}).join("L")+"Z").join("");
+const arc=(a,b)=>{const[x1,y1]=P(a),[x2,y2]=P(b),L=Math.hypot(x2-x1,y2-y1);return{d:`M${x1} ${y1}Q${(x1+x2)/2} ${(y1+y2)/2-L*.22} ${x2} ${y2}`,mx:(x1+x2)/2,my:(y1+y2)/2-L*.11,ang:Math.atan2(y2-y1,x2-x1)*180/Math.PI}};
+function drawMap(o,d){
+  const s=d.find(x=>x.c===sel),pts=[P(o),...d.map(x=>P(x.c))],ar=1000/362,pad=45;
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  const x0=Math.min(...xs)-pad,x1=Math.max(...xs)+pad,y0=Math.min(...ys)-pad,y1=Math.max(...ys)+pad;
+  const w=Math.max(x1-x0,(y1-y0)*ar,300),h=w/ar,r=w/1000,cx=(x0+x1)/2,cy=(y0+y1)/2;
+  let g=`<path class="land" d="${LAND}"/>`,dots="";
+  d.forEach(x=>{if(x.c!==sel)g+=`<path class="arc" d="${arc(o,x.c).d}"/>`});
+  if(s){const a=arc(o,s.c);g+=`<path class="arc sel" d="${a.d}"/><polygon fill="#e5484d" points="-5,-4 7,0 -5,4" transform="translate(${a.mx} ${a.my}) rotate(${a.ang}) scale(${r*1.6})"/>`}
+  d.forEach(x=>{const[px,py]=P(x.c),on=x.c===sel;dots+=`<circle class="dot${on?" sel":""}" data-c="${x.c}" cx="${px}" cy="${py}" r="${(on?5.5:4)*r}"/>`;if(on||d.length<=14)dots+=`<text x="${px+6*r}" y="${py-5*r}" font-size="${11*r}" style="stroke-width:${3*r}px">${AP[x.c][0].split(" (")[0]}</text>`});
+  const[ox,oy]=P(o);
+  dots+=`<circle class="org" cx="${ox}" cy="${oy}" r="${5.5*r}"/><text x="${ox+7*r}" y="${oy+13*r}" font-size="${12*r}" font-weight="700" style="stroke-width:${3*r}px">${AP[o][0]}</text>`;
+  $("map").setAttribute("viewBox",`${cx-w/2} ${cy-h/2} ${w} ${h}`);
+  $("map").innerHTML=g+dots;
+  $("cap").textContent=s?`${AP[o][0]} → ${AP[s.c][0]} · ${fmt(s.m)} · ${s.al.map(a=>AIR[a]).join(", ")}`:"Tap a destination on the map or in the list to highlight its route.";
+}
+const pick=c=>{sel=sel===c?null:c;render()};
+const LIVE={},SRC={};
+const staticFor=o=>R.filter(r=>r.a===o||r.b===o).map(r=>({c:r.a===o?r.b:r.a,m:r.m,al:r.al,st:r.st}));
+const routesFor=o=>LIVE[o]||staticFor(o);
+async function go(){
+  const o=$("origin").value;
+  if(!SRC[o]){
+    $("count").textContent="Loading live schedule data\u2026";
+    try{
+      const r=await fetch("/api/routes?from="+o);
+      if(!r.ok)throw 0;
+      const j=await r.json();
+      if(!j.routes||!j.routes.length)throw 0;
+      LIVE[o]=j.routes.map(x=>{AP[x.c]=AP[x.c]||[x.name,x.country];LL[x.c]=LL[x.c]||[x.lng,x.lat];return{c:x.c,m:x.m,al:x.al,st:{}}});
+      SRC[o]="live";
+    }catch(e){SRC[o]="static"}
+  }
+  render();
+}
+const fmt=m=>Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m";
+const $=id=>document.getElementById(id);
+const origins=Object.keys(AP).filter(isAU).sort((a,b)=>AP[a][0].localeCompare(AP[b][0]));
+$("origin").innerHTML=origins.map(c=>`<option value="${c}">${AP[c][0]} (${c})</option>`).join("");
+let filter="all";
+function render(){
+  const o=$("origin").value,q=$("q").value.trim().toLowerCase(),s=$("sort").value;
+  let d=routesFor(o);
+  d=d.filter(x=>filter==="all"||(filter==="dom")===isAU(x.c));
+  if(q)d=d.filter(x=>(AP[x.c][0]+" "+AP[x.c][1]+" "+x.c+" "+x.al.map(a=>AIR[a]).join(" ")).toLowerCase().includes(q));
+  d.sort((a,b)=>s==="n"?AP[a.c][0].localeCompare(AP[b.c][0]):s==="l"?b.m-a.m:a.m-b.m);
+  const max=Math.max(...R.map(r=>r.m));drawMap(o,d);
+  $("count").textContent=d.length+" destination"+(d.length===1?"":"s")+" from "+AP[o][0]+" \u00b7 "+(SRC[o]==="live"?"live schedule data":"built-in sample data");
+  $("list").innerHTML=d.map(x=>`<div class="card${x.c===sel?" on":""}" data-c="${x.c}"><div class="top"><div><span class="city">${AP[x.c][0]}</span><span class="code">${x.c}</span></div><div class="dur">${fmt(x.m)}</div></div><div class="bar" style="width:${Math.max(6,x.m/max*100)}%"></div><div class="meta">${AP[x.c][1]} · ${isAU(x.c)?"Domestic":"International"} · Direct${x.al.every(a=>x.st[a]&&new Date(x.st[a])>TODAY)?" · Starting soon":""}</div><div class="chips">${x.al.map(a=>`<span class="chip">${AIR[a]}${soon(x,a)}</span>`).join("")}</div></div>`).join("")||'<div class="card">No matching routes.</div>';
+}
+$("origin").onchange=()=>{sel=null;go()};$("sort").onchange=render;
+$("q").oninput=render;
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",t===b));render()});
+$("list").onclick=e=>{const c=e.target.closest(".card");if(c&&c.dataset.c)pick(c.dataset.c)};
+$("map").onclick=e=>{const c=e.target.dataset&&e.target.dataset.c;if(c)pick(c)};
+go();
+</script>
+</body>
+</html>
